@@ -1,6 +1,7 @@
 import numpy as np
 from bicycle import step
 from lqr import lqr_gain
+from mpc import mpc_inputs
 from model import error_model
 
 
@@ -62,9 +63,24 @@ def path_length(path):
     return float(np.sum(np.hypot(np.diff(path["x"]), np.diff(path["y"]))))
 
 
+def mpc_steer(x, y, theta, path, i, A, B, Q, R, N, v, dt):
+    # 往前看 N 步：路线在第 k 步弯多少（曲率），会让车头误差每步变化 -v·dt·κ
+    e, e_theta = tracking_errors(x, y, theta, path, i)
+    ds = path_length(path) / (len(path["x"]) - 1)
+    ahead = max(1, int(round(v * dt / ds)))
+    last = len(path["x"]) - 1
+    d = np.zeros((N, 2))
+    for k in range(N):
+        j = min(i + k * ahead, last)
+        d[k, 1] = -v * dt * path["kappa"][j]
+    U = mpc_inputs(A, B, Q, R, N, np.array([e, e_theta]), d)
+    # 只执行第一步，下一步重新算
+    return U[0, 0]
+
+
 def track(path, method, v, dt=0.1, L=2.5, max_delta=np.radians(35), Q=None, R=None,
-          feedforward=True):
-    # 车放在路线起点，按 method（"lqr" 或 "pp"）一直开到路线尽头
+          feedforward=True, N=20):
+    # 车放在路线起点，按 method（"lqr"、"mpc" 或 "pp"）一直开到路线尽头
     if Q is None:
         Q = np.eye(2)
     if R is None:
@@ -84,6 +100,8 @@ def track(path, method, v, dt=0.1, L=2.5, max_delta=np.radians(35), Q=None, R=No
             break
         if method == "lqr":
             delta = lqr_steer(x, y, theta, path, i, K, L, feedforward)
+        elif method == "mpc":
+            delta = mpc_steer(x, y, theta, path, i, A, B, Q, R, N, v, dt)
         else:
             delta = pure_pursuit_steer(x, y, theta, path, i, v, L)
         delta = np.clip(delta, -max_delta, max_delta)
