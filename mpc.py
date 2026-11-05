@@ -33,3 +33,25 @@ def mpc_inputs(A, B, Q, R, N, x0, d=None):
     U = -np.linalg.solve(H, Su.T @ Q_bar @ free)
     return U.reshape(N, B.shape[1])
 
+
+
+def mpc_inputs_limited(A, B, Q, R, N, x0, u_max, d=None, n_iter=300):
+    # 带限制的 MPC：每一步方向盘都必须在 [-u_max, u_max] 里
+    # 用“投影梯度下降”：往罚款下降的方向走一小步，超出范围就截回边界，反复做
+    nx = A.shape[0]
+    Sx, Su = prediction_matrices(A, B, N)
+    _, Sd = prediction_matrices(A, np.eye(nx), N)
+    Q_bar = np.kron(np.eye(N), Q)
+    R_bar = np.kron(np.eye(N), R)
+    free = Sx @ x0
+    if d is not None:
+        free = free + Sd @ np.ravel(d)
+    H = Su.T @ Q_bar @ Su + R_bar
+    g = Su.T @ Q_bar @ free
+    # 步长取 1 / H 最大特征值，保证每一步罚款都不会变大
+    lr = 1.0 / np.max(np.linalg.eigvalsh(H))
+    U = np.clip(-np.linalg.solve(H, g), -u_max, u_max)
+    for i in range(n_iter):
+        grad = H @ U + g
+        U = np.clip(U - lr * grad, -u_max, u_max)
+    return U.reshape(N, B.shape[1])
