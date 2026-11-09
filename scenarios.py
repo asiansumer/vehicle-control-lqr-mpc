@@ -16,3 +16,18 @@ def u_turn(radius=8.0):
     ys = np.concatenate([np.zeros_like(straight), radius + radius * np.sin(t),
                          2 * radius * np.ones_like(straight)])
     return make_path(xs, ys)
+
+
+def corner(radius=5.0):
+    # 直行 20 米 → 半径 radius 的 90° 左转 → 再直行 20 米
+    straight = np.arange(0, 20, 0.1)
+    t = np.arange(0, np.pi / 2, 0.1 / radius)
+    xs = np.concatenate([straight, 20 + radius * np.sin(t), (20 + radius) * np.ones_like(straight)])
+    ys = np.concatenate([np.zeros_like(straight), radius - radius * np.cos(t), radius + straight])
+    return make_path(xs, ys)
+
+
+def straight_line(length=80.0):
+    # 一条直线，用来测“车一开始就偏了好几米”能不能拉回来
+    xs = np.arange(0, length, 0.1)
+    return make_path(xs, np.zeros_like(xs))

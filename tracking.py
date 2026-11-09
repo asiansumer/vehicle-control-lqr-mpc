@@ -82,7 +82,7 @@ def mpc_steer(x, y, theta, path, i, A, B, Q, R, N, v, dt, u_max=None):
 
 
 def track(path, method, v, dt=0.1, L=2.5, max_delta=np.radians(35), Q=None, R=None,
-          feedforward=True, N=20):
+          feedforward=True, N=20, start_offset=0.0):
     # 车放在路线起点，按 method（"lqr"、"mpc"、"mpc_limited" 或 "pp"）一直开到路线尽头
     if Q is None:
         Q = np.eye(2)
@@ -91,11 +91,12 @@ def track(path, method, v, dt=0.1, L=2.5, max_delta=np.radians(35), Q=None, R=No
     A, B = error_model(v, dt, L)
     K = lqr_gain(A, B, Q, R)
 
-    x = path["x"][0]
-    y = path["y"][0]
+    # start_offset：车一开始在路线左边多少米（负数是右边）
     theta = path["heading"][0]
+    x = path["x"][0] - start_offset * np.sin(theta)
+    y = path["y"][0] + start_offset * np.cos(theta)
     i = 0
-    log = {"x": [x], "y": [y], "e": [0.0], "delta": []}
+    log = {"x": [x], "y": [y], "e": [start_offset], "delta": []}
     last = len(path["x"]) - 1
     for k in range(int(3 * path_length(path) / (v * dt))):
         i = nearest_index(x, y, path, i)

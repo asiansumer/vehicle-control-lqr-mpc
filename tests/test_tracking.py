@@ -28,3 +28,10 @@ def test_lqr_pulls_back_to_line():
     path["y"] = path["y"] - 1.0
     log = track(path, "lqr", v=5)
     assert abs(log["e"][-1]) < 0.05
+
+
+def test_start_offset():
+    # start_offset=2：车一开始就在路线左边 2 米
+    log = track(straight_path(), "lqr", v=5, start_offset=2.0)
+    assert np.isclose(log["e"][0], 2.0)
+    assert np.isclose(log["y"][0], 2.0)
